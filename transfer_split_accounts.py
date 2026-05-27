@@ -9,6 +9,8 @@ import json
 import sys
 import argparse
 
+DESTINATIONS = 50
+
 class MoneroTransferSplit:
     def __init__(self, wallet_url="http://127.0.0.1:28088"):
         self.wallet_url = f"{wallet_url}/json_rpc"
@@ -99,14 +101,14 @@ class MoneroTransferSplit:
         print(f"  Amount per address: {self.format_xmr(amount_per_addr):.12f} XMR ({amount_per_addr} atomic)")
         
         # Get source account balance
-        print(f"\n💰 Source Account Balance:")
-        balance, unlocked = self.get_balance(from_account)
-        print(f"  Account {from_account}: {self.format_xmr(balance):.12f} XMR total, "
-              f"{self.format_xmr(unlocked):.12f} XMR unlocked")
+        # print(f"\n💰 Source Account Balance:")
+        # balance, unlocked = self.get_balance(from_account)
+        # print(f"  Account {from_account}: {self.format_xmr(balance):.12f} XMR total, "
+        #       f"{self.format_xmr(unlocked):.12f} XMR unlocked")
         
-        if unlocked == 0:
-            print(f"❌ No unlocked balance in account {from_account}!")
-            return False
+        # if unlocked == 0:
+        #     print(f"❌ No unlocked balance in account {from_account}!")
+        #     return False
         
         # Get destination addresses
         print(f"\n📍 Fetching destination addresses...")
@@ -117,8 +119,8 @@ class MoneroTransferSplit:
             return False
         
         # Create more addresses if we have fewer than 16
-        if len(to_addresses) < 20:
-            addresses_needed = 20 - len(to_addresses)
+        if len(to_addresses) < DESTINATIONS:
+            addresses_needed = DESTINATIONS - len(to_addresses)
             print(f"⏳ Creating {addresses_needed} more addresses...")
             
             new_addresses = self.create_addresses(to_account, addresses_needed)
@@ -131,7 +133,7 @@ class MoneroTransferSplit:
         
         # Take first 16 addresses
         destination_addrs = []
-        for i in range(min(20, len(to_addresses))):
+        for i in range(min(DESTINATIONS, len(to_addresses))):
             addr_info = to_addresses[i]
             addr = addr_info.get("address", "")
             label = addr_info.get("label", "(no label)")
@@ -155,16 +157,16 @@ class MoneroTransferSplit:
         print(f"  Total Amount: {self.format_xmr(total_amount):.12f} XMR")
         
         # Check if balance is sufficient
-        if unlocked < total_amount:
-            print(f"\n⚠️  Warning: Total amount exceeds unlocked balance!")
-            print(f"   Unlocked: {self.format_xmr(unlocked):.12f} XMR")
-            print(f"   Required: {self.format_xmr(total_amount):.12f} XMR")
+        # if unlocked < total_amount:
+        #     print(f"\n⚠️  Warning: Total amount exceeds unlocked balance!")
+        #     print(f"   Unlocked: {self.format_xmr(unlocked):.12f} XMR")
+        #     print(f"   Required: {self.format_xmr(total_amount):.12f} XMR")
         
         # Confirm
-        response = input(f"\n❓ Proceed with transfer? (yes/no): ").strip().lower()
-        if response not in ["yes", "y"]:
-            print("Cancelled.")
-            return False
+        # response = input(f"\n❓ Proceed with transfer? (yes/no): ").strip().lower()
+        # if response not in ["yes", "y"]:
+            # print("Cancelled.")
+            # return False
         
         # Send transfer
         print(f"\n⏳ Sending transfer (may split into multiple transactions)...")
@@ -231,23 +233,24 @@ Examples:
     
     parser.add_argument("from_account", type=int, help="Source account index")
     parser.add_argument("to_account", type=int, help="Destination account index")
-    parser.add_argument("amount", type=int, 
-                       help="Amount per address in atomic units (1 XMR = 1e12 atomic)")
+    # parser.add_argument("amount", type=int, 
+                       # help="Amount per address in atomic units (1 XMR = 1e12 atomic)", default=1)
     parser.add_argument("--wallet-url", type=str, default="http://127.0.0.1:28088",
                        help="Wallet RPC URL (default: http://127.0.0.1:28088)")
     
     args = parser.parse_args()
     
-    if args.from_account == args.to_account:
-        print("❌ Source and destination accounts must be different!")
-        sys.exit(1)
+    # if args.from_account == args.to_account:
+    #     print("❌ Source and destination accounts must be different!")
+    #     sys.exit(1)
     
-    if args.amount <= 0:
-        print("❌ Amount must be positive!")
-        sys.exit(1)
+    # if args.amount <= 0:
+    #     print("❌ Amount must be positive!")
+    #     sys.exit(1)
     
     transfer = MoneroTransferSplit(args.wallet_url)
-    success = transfer.transfer_between_accounts(args.from_account, args.to_account, args.amount)
+    # success = transfer.transfer_between_accounts(args.from_account, args.to_account, args.amount)
+    success = transfer.transfer_between_accounts(args.from_account, args.to_account, 1)
     
     sys.exit(0 if success else 1)
 
