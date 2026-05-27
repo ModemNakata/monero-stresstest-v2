@@ -117,8 +117,8 @@ class MoneroTransferSplit:
             return False
         
         # Create more addresses if we have fewer than 16
-        if len(to_addresses) < 16:
-            addresses_needed = 16 - len(to_addresses)
+        if len(to_addresses) < 20:
+            addresses_needed = 20 - len(to_addresses)
             print(f"⏳ Creating {addresses_needed} more addresses...")
             
             new_addresses = self.create_addresses(to_account, addresses_needed)
@@ -131,7 +131,7 @@ class MoneroTransferSplit:
         
         # Take first 16 addresses
         destination_addrs = []
-        for i in range(min(16, len(to_addresses))):
+        for i in range(min(20, len(to_addresses))):
             addr_info = to_addresses[i]
             addr = addr_info.get("address", "")
             label = addr_info.get("label", "(no label)")
