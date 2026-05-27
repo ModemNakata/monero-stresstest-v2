@@ -9,7 +9,7 @@ import json
 import sys
 import argparse
 
-DESTINATIONS = 50
+DESTINATIONS = 100
 
 class MoneroTransferSplit:
     def __init__(self, wallet_url="http://127.0.0.1:28088"):
