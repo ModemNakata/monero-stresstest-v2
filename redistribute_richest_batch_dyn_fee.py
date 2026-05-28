@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """
-Batch version with dynamic fee retry: on tx failure, increase fee reserve
-by FEE_RESERVE step and retry, up to MAX_FEE_RETRIES additional attempts.
+Batch version with dynamic fee retry for Monero FCMP++ Stressnet testing.
+Fixed to dynamically pool all generated subaddresses, preventing 72-tx loops.
 """
 
-import requests, json, sys, argparse, random, time
+import requests
+import json
+import sys
+import argparse
+import random
+import time
 from datetime import datetime, timezone
 
 FEE_RESERVE = 500000000   # 0.0005 XMR — base fee reserve
@@ -12,7 +17,7 @@ FEE_STEP = 500000000      # 0.0005 XMR — added per retry
 MAX_FEE_RETRIES = 5
 MIN_SOURCE = 1500000000    # 0.0015 XMR — minimum unlocked to be a source
 MIN_DEST = 100000000       # 0.0001 XMR — minimum per-destination amount
-DELAY = 0  # 0 minutes
+DELAY = 0                  # Maintained at 0 as requested
 MAX_DEST = 15
 
 def ts():
@@ -52,6 +57,7 @@ class DynFeeBatchLoop:
         return a / 1e12
 
     def get_all_subs(self):
+        """Fetches subaddresses that have a balance history (Sources)."""
         accs = self.rpc("get_accounts", {}).get("subaddress_accounts", [])
         subs = []
         for acc in accs:
@@ -69,40 +75,61 @@ class DynFeeBatchLoop:
                 })
         return subs
 
+    def get_all_destinations(self):
+        """Fetches ALL generated subaddresses regardless of balance (Destinations)."""
+        accs = self.rpc("get_accounts", {}).get("subaddress_accounts", [])
+        dests = []
+        for acc in accs:
+            aidx = acc["account_index"]
+            r = self.rpc("get_address", {"account_index": aidx})
+            if r is None:
+                continue
+            for addr_info in r.get("addresses", []):
+                dests.append({
+                    "account": aidx,
+                    "subaddr": addr_info["address_index"],
+                    "address": addr_info["address"]
+                })
+        return dests
+
     def run(self, delay=DELAY):
         iteration = 0
+        
+        # Load the destination pool once globally to save RPC overhead
+        all_destinations = self.get_all_destinations()
+        print(f"Loaded {len(all_destinations)} total destination addresses from the wallet.")
+
         while True:
             iteration += 1
             print(f"\n{'='*80}")
             print(f"Batch iteration {iteration} — {ts()}")
             print(f"{'='*80}")
-
+            
             subs = self.get_all_subs()
             if not subs:
-                print("  No subaddresses found")
+                print("  No subaddresses found with balance history")
                 time.sleep(delay)
                 continue
 
             batch_size = sum(1 for s in subs if s["unlocked"] >= MIN_SOURCE)
             if batch_size == 0:
-                print(f"  No subaddresses with >= {self.fmt(MIN_SOURCE):.12f} XMR unlocked")
-                time.sleep(delay)
+                print(f"  No subaddresses with >= {self.fmt(MIN_SOURCE):.12f} XMR unlocked. (Waiting for locktimes...)")
+                time.sleep(5)  # Short defensive sleep to avoid CPU thrashing when locked
                 continue
 
             sent_in_batch = 0
             print(f"  Batch size: {batch_size} (subs with unlocked >= {self.fmt(MIN_SOURCE):.12f})")
-
+            
             for tx_idx in range(batch_size):
                 subs.sort(key=lambda s: s["unlocked"], reverse=True)
                 richest = subs[0]
-
                 if richest["unlocked"] == 0:
                     print("  Richest has 0 unlocked — ending batch")
                     break
 
                 fee_reserve = FEE_RESERVE
                 tx_ok = False
-
+                
                 for attempt in range(MAX_FEE_RETRIES + 1):
                     remaining = richest["unlocked"] - fee_reserve
                     if remaining <= 0:
@@ -116,9 +143,10 @@ class DynFeeBatchLoop:
                                   f"giving up")
                         break
 
-                    pool = [s for s in subs if s["address"] and s["address"] != richest["address"]]
+                    # FIX: Draw from the full list of 1000+ addresses, not just funded ones
+                    pool = [d for d in all_destinations if d["address"] and d["address"] != richest["address"]]
                     if not pool:
-                        print(f"    No other subaddresses available, skipping")
+                        print(f"    No other subaddresses available in total pool, skipping")
                         break
 
                     num_dest = min(MAX_DEST, len(pool))
@@ -131,12 +159,12 @@ class DynFeeBatchLoop:
                     if num_dest == 0:
                         print(f"    Richest (a={richest['account']}, s={richest['subaddr']}) "
                               f"remaining={self.fmt(remaining):.12f} — "
-                              f"cannot split with >= 0.001 per dest, skipping")
+                              f"cannot split with >= {self.fmt(MIN_DEST)} per dest, skipping")
                         break
 
                     dests = random.sample(pool, num_dest)
                     per_dest = remaining // (num_dest + 1)
-
+                    
                     print(f"\n  TX {tx_idx+1}/{batch_size} (attempt {attempt+1}/{MAX_FEE_RETRIES+1})")
                     print(f"    Richest: account={richest['account']}, subaddr={richest['subaddr']}, "
                           f"unlocked={self.fmt(richest['unlocked']):.12f}, "
@@ -150,18 +178,18 @@ class DynFeeBatchLoop:
                         "subaddr_indices": [richest["subaddr"]],
                         "priority": 0,
                     }
-
+                    
                     err, result = self.rpc_raw("transfer", params)
                     if err:
                         print(f"    FAILED: {err}")
                         fee_reserve += FEE_STEP
                         continue
-
+                        
                     print(f"    SUCCESS")
                     print(f"      TX: {result.get('tx_hash', '?')}")
                     print(f"      Amount: {self.fmt(result.get('amount', 0)):.12f}")
                     print(f"      Fee: {self.fmt(result.get('fee', 0)):.12f}")
-
+                    
                     sent_amount = result.get('amount', 0)
                     for s in subs:
                         if s["account"] == richest["account"] and s["subaddr"] == richest["subaddr"]:
@@ -183,6 +211,7 @@ if __name__ == "__main__":
     p.add_argument("--wallet-url", default="http://192.168.1.188:28088")
     p.add_argument("--delay", type=int, default=DELAY)
     args = p.parse_args()
+    
     try:
         DynFeeBatchLoop(args.wallet_url).run(delay=args.delay)
     except KeyboardInterrupt:
