@@ -37,3 +37,15 @@ $ curl -X POST http://127.0.0.1:18088/json_rpc -d '{"jsonrpc":"2.0","id":"0","me
   }
 }
 
+
+
+~/Desktop/stressnet/testsuit main*
+❯ curl -X POST http://192.168.1.188:28088/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"sweep_dust","params":{"get_tx_keys":true}}' -H 'Content-Type: application/json'
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "multisig_txset": "",
+    "unsigned_txset": ""
+  }
+}⏎                                                                                                                                                                      

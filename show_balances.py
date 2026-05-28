@@ -17,7 +17,7 @@ def rpc_call(url, method, params=None):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--wallet-url", default="http://127.0.0.1:28088")
+    p.add_argument("--wallet-url", default="http://192.168.1.188:28088")
     args = p.parse_args()
     url = args.wallet_url
 

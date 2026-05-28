@@ -78,7 +78,7 @@ class Loop:
                 subs = self.get_all_subs()
                 if not subs:
                     print("  No subaddresses found")
-                    time.sleep(delay)
+                    # time.sleep(delay)
                     continue
 
                 # Sort by unlocked descending
@@ -87,14 +87,14 @@ class Loop:
 
                 if richest["unlocked"] == 0:
                     print("  Richest subaddress has 0 unlocked")
-                    time.sleep(delay)
+                    # time.sleep(delay)
                     continue
 
                 # Pick 15 random destinations (excluding richest)
                 pool = [s for s in subs if s["address"] and s["address"] != richest["address"]]
                 if len(pool) < NUM_DEST:
                     print(f"  Not enough subaddresses (need {NUM_DEST}, have {len(pool)})")
-                    time.sleep(delay)
+                    # time.sleep(delay)
                     continue
 
                 dests = random.sample(pool, NUM_DEST)
@@ -104,7 +104,6 @@ class Loop:
                       f"unlocked={self.fmt(richest['unlocked']):.12f}")
                 print(f"  Per dest amount: {self.fmt(per_dest):.12f}")
                 print(f"  Destinations: {NUM_DEST} random subaddresses")
-                print(f"  Using subtract_fee_from_outputs")
 
                 params = {
                     "destinations": [{"amount": per_dest, "address": d["address"]} for d in dests],
@@ -126,7 +125,7 @@ class Loop:
                 print(f"  EXCEPTION: {e}")
 
             print(f"  Sleeping {delay}s...")
-            time.sleep(delay)
+            # time.sleep(delay)
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
