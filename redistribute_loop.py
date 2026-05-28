@@ -27,7 +27,7 @@ def ts():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 class MoneroRedistributeLoop:
-    def __init__(self, wallet_url="http://127.0.0.1:28088"):
+    def __init__(self, wallet_url):
         self.wallet_url = f"{wallet_url}/json_rpc"
         self.session = requests.Session()
 

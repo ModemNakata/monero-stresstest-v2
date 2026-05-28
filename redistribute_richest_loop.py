@@ -130,7 +130,7 @@ class Loop:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--wallet-url", default="http://127.0.0.1:28088")
+    p.add_argument("--wallet-url", default="http://192.168.1.188:28088")
     p.add_argument("--delay", type=int, default=60*20) # 20 minutes
     args = p.parse_args()
     try:
