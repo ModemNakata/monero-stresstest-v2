@@ -12,7 +12,7 @@ FEE_STEP = 500000000      # 0.0005 XMR — added per retry
 MAX_FEE_RETRIES = 5
 MIN_SOURCE = 1500000000    # 0.0015 XMR — minimum unlocked to be a source
 MIN_DEST = 100000000       # 0.0001 XMR — minimum per-destination amount
-DELAY = 120  # 2 minutes
+DELAY = 0  # 0 minutes
 MAX_DEST = 15
 
 def ts():
@@ -142,8 +142,7 @@ class DynFeeBatchLoop:
                           f"unlocked={self.fmt(richest['unlocked']):.12f}, "
                           f"fee_reserve={self.fmt(fee_reserve):.12f}")
                     print(f"    Destinations: {num_dest}, per dest: {self.fmt(per_dest):.12f}")
-                    for i, d in enumerate(dests):
-                        print(f"      dest[{i}]: a={d['account']} s={d['subaddr']} {d['address'][:12]}...")
+                    print(f"    Dests: " + ", ".join(f"[{d['account']},{d['subaddr']}]" for d in dests))
 
                     params = {
                         "destinations": [{"amount": per_dest, "address": d["address"]} for d in dests],
