@@ -7,11 +7,11 @@ by FEE_RESERVE step and retry, up to MAX_FEE_RETRIES additional attempts.
 import requests, json, sys, argparse, random, time
 from datetime import datetime, timezone
 
-FEE_RESERVE = 1000000000   # 0.001 XMR — base fee reserve
-FEE_STEP = 1000000000      # 0.001 XMR — added per retry
+FEE_RESERVE = 500000000   # 0.0005 XMR — base fee reserve
+FEE_STEP = 500000000      # 0.0005 XMR — added per retry
 MAX_FEE_RETRIES = 5
-MIN_SOURCE = 1000000000    # 0.001 XMR — minimum unlocked to be a source
-MIN_DEST = 1000000000      # 0.001 XMR — minimum per-destination amount
+MIN_SOURCE = 1500000000    # 0.0015 XMR — minimum unlocked to be a source
+MIN_DEST = 100000000       # 0.0001 XMR — minimum per-destination amount
 DELAY = 120  # 2 minutes
 MAX_DEST = 15
 
@@ -142,6 +142,8 @@ class DynFeeBatchLoop:
                           f"unlocked={self.fmt(richest['unlocked']):.12f}, "
                           f"fee_reserve={self.fmt(fee_reserve):.12f}")
                     print(f"    Destinations: {num_dest}, per dest: {self.fmt(per_dest):.12f}")
+                    for i, d in enumerate(dests):
+                        print(f"      dest[{i}]: a={d['account']} s={d['subaddr']} {d['address'][:12]}...")
 
                     params = {
                         "destinations": [{"amount": per_dest, "address": d["address"]} for d in dests],
