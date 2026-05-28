@@ -24,7 +24,7 @@ def ts():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 class DynFeeBatchLoop:
-    def __init__(self, wallet_url="http://192.168.1.188:28088"):
+    def __init__(self, wallet_url):
         self.url = f"{wallet_url}/json_rpc"
         self.session = requests.Session()
 
@@ -229,7 +229,7 @@ class DynFeeBatchLoop:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--wallet-url", default="http://192.168.1.188:28088")
+    p.add_argument("--wallet-url", default="http://127.0.0.1:28088")
     p.add_argument("--delay", type=int, default=DELAY)
     args = p.parse_args()
     
