@@ -182,6 +182,27 @@ class DynFeeBatchLoop:
                     err, result = self.rpc_raw("transfer", params)
                     if err:
                         print(f"    FAILED: {err}")
+                        if "Transaction would be too large" in err:
+                            print(f"    -> Too large, retrying with transfer_split")
+                            err2, result2 = self.rpc_raw("transfer_split", params)
+                            if err2:
+                                print(f"    transfer_split also FAILED: {err2}")
+                                fee_reserve += FEE_STEP
+                                continue
+                            print(f"    SUCCESS (via transfer_split)")
+                            print(f"      TXs: {result2.get('tx_hash_list', [])}")
+                            amounts = result2.get('amount_list', [0])
+                            fees = result2.get('fee_list', [0])
+                            print(f"      Amounts: {[self.fmt(a) for a in amounts]}")
+                            print(f"      Fees: {[self.fmt(f) for f in fees]}")
+                            sent_amount = sum(amounts)
+                            for s in subs:
+                                if s["account"] == richest["account"] and s["subaddr"] == richest["subaddr"]:
+                                    s["unlocked"] -= sent_amount
+                                    break
+                            sent_in_batch += 1
+                            tx_ok = True
+                            break
                         fee_reserve += FEE_STEP
                         continue
                         
