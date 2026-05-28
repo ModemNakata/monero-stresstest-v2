@@ -20,6 +20,8 @@ TARGET_SUBADDRESSES = 500
 TARGET_ACCOUNTS = 500
 FEE_RESERVE_SUBADDR = 50000000000
 FEE_RESERVE_ACCOUNT = 5000000000
+INITIAL_FEE_RESERVE = 1000000000
+FEE_STEP = 5000000000
 
 def ts():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -41,6 +43,20 @@ class MoneroRedistributeLoop:
             return result.get("result", {})
         except Exception as e:
             return None
+
+    def rpc_call_raw(self, method, params=None):
+        if params is None:
+            params = {}
+        payload = {"jsonrpc": "2.0", "id": "0", "method": method, "params": params}
+        try:
+            resp = self.session.post(self.wallet_url, json=payload, timeout=60)
+            result = resp.json()
+            if "error" in result and result["error"] is not None:
+                err = result["error"]
+                return f"RPC Error {err.get('code', '?')}: {err.get('message', 'Unknown')}", None
+            return None, result.get("result", {})
+        except Exception as e:
+            return str(e), None
 
     def format_xmr(self, a):
         return a / 1e12
@@ -107,7 +123,8 @@ class MoneroRedistributeLoop:
         params = {"destinations": dest_list, "account_index": from_account, "priority": 0}
         if subaddr_indices is not None:
             params["subaddr_indices"] = subaddr_indices
-        return self.rpc_call("transfer_split", params)
+        err, result = self.rpc_call_raw("transfer_split", params)
+        return err, result
 
     # ---- phase implementations ----
 
@@ -226,24 +243,43 @@ class MoneroRedistributeLoop:
                 skipped += 1
                 continue
 
-            if unlocked <= FEE_RESERVE_ACCOUNT:
-                skipped += 1
-                continue
-
             candidates = [i for i in account_addresses if i != account_index]
             if len(candidates) < NUM_DESTINATIONS:
                 candidates = list(account_addresses.keys())
             chosen = random.sample(candidates, NUM_DESTINATIONS)
             dest_addrs = [account_addresses[i] for i in chosen]
 
-            per_dest = (unlocked - FEE_RESERVE_ACCOUNT) // NUM_DESTINATIONS
-            log.append(f"  Acc {account_index} ({label}): unlocked={self.format_xmr(unlocked):.12f}, "
-                       f"splitting {NUM_DESTINATIONS}x{self.format_xmr(per_dest):.12f}, "
-                       f"blocks_to_unlock={blocks_to_unlock}")
+            # Retry loop: increase fee reserve on -16 error
+            fee_reserve = INITIAL_FEE_RESERVE
+            success = False
+            result = None
+            last_error = None
 
-            result = self.transfer_account(account_index, dest_addrs, per_dest, subaddr_indices)
-            if result is None:
-                log.append(f"    FAILED")
+            while True:
+                if unlocked <= fee_reserve:
+                    break
+
+                per_dest = (unlocked - fee_reserve) // NUM_DESTINATIONS
+                if per_dest == 0:
+                    break
+
+                log.append(f"  Acc {account_index} ({label}): unlocked={self.format_xmr(unlocked):.12f}, "
+                           f"reserve={self.format_xmr(fee_reserve):.12f}, "
+                           f"splitting {NUM_DESTINATIONS}x{self.format_xmr(per_dest):.12f}, "
+                           f"blocks_to_unlock={blocks_to_unlock}")
+
+                err, result = self.transfer_account(account_index, dest_addrs, per_dest, subaddr_indices)
+                if err is None:
+                    success = True
+                    break
+
+                last_error = err
+                log.append(f"    Failed: {err}")
+                log.append(f"    Increasing reserve by {self.format_xmr(FEE_STEP):.12f}...")
+                fee_reserve += FEE_STEP
+
+            if not success:
+                log.append(f"    Gave up. Last error: {last_error}")
                 failed += 1
                 continue
 
@@ -255,7 +291,8 @@ class MoneroRedistributeLoop:
             processed += 1
             total_sent += tx_amount
             total_fees += tx_fee
-            log.append(f"    OK: {len(tx_hashes)} tx(s), amount={self.format_xmr(tx_amount):.12f}, "
+            log.append(f"    OK (reserve={self.format_xmr(fee_reserve):.12f}): "
+                       f"{len(tx_hashes)} tx(s), amount={self.format_xmr(tx_amount):.12f}, "
                        f"fee={self.format_xmr(tx_fee):.12f}")
             for h in tx_hashes:
                 log.append(f"      tx={h}")
