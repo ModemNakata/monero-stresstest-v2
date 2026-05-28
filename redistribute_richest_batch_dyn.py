@@ -8,7 +8,8 @@ such that each gets >= 0.001 XMR.
 import requests, json, sys, argparse, random, time
 from datetime import datetime, timezone
 
-MIN_UNLOCKED = 1000000000  # 0.001 XMR in atomic units
+FEE_RESERVE = 1000000000   # 0.001 XMR — reserved for tx fee
+MIN_UNLOCKED = 1000000000  # 0.001 XMR — minimum per-destination amount
 DELAY = 120  # 2 minutes
 MAX_DEST = 15
 
@@ -97,7 +98,7 @@ class DynBatchLoop:
                     print("  Richest has 0 unlocked — ending batch")
                     break
 
-                remaining = richest["unlocked"] - MIN_UNLOCKED
+                remaining = richest["unlocked"] - FEE_RESERVE
                 if remaining <= 0:
                     print(f"    Richest (a={richest['account']}, s={richest['subaddr']}) "
                           f"unlocked={self.fmt(richest['unlocked']):.12f} — "
@@ -121,7 +122,7 @@ class DynBatchLoop:
                 if num_dest == 0:
                     print(f"    Richest (a={richest['account']}, s={richest['subaddr']}) "
                           f"remaining={self.fmt(remaining):.12f} — "
-                          f"cannot split with >= 0.001 per dest, skipping")
+                          f"cannot split with _ per dest, skipping")
                     richest["unlocked"] = 0
                     continue
 
@@ -131,7 +132,7 @@ class DynBatchLoop:
                 print(f"\n  TX {tx_idx+1}/{batch_size}")
                 print(f"    Richest: account={richest['account']}, subaddr={richest['subaddr']}, "
                       f"unlocked={self.fmt(richest['unlocked']):.12f}, "
-                      f"fee_reserve={self.fmt(MIN_UNLOCKED):.12f}")
+                      f"fee_reserve={self.fmt(FEE_RESERVE):.12f}")
                 print(f"    Destinations: {num_dest}, per dest: {self.fmt(per_dest):.12f}")
 
                 params = {
